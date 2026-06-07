@@ -147,6 +147,28 @@ function GeneratePage() {
     toast("History cleared");
   };
 
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          to_email: recipientEmail,
+          subject: subject,
+          body: body,
+        },
+        EMAILJS_PUBLIC_KEY,
+      );
+      toast.success("✅ Email sent to " + recipientEmail + "!");
+    } catch (error) {
+      toast.error("⚠️ Failed to send. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
       <header className="mb-10 max-w-2xl">
