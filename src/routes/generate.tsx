@@ -2,8 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Download, Loader2, Sparkles, Trash2, Mail, Database } from "lucide-react";
+import { Copy, Download, Loader2, Sparkles, Trash2, Mail, Database, Send } from "lucide-react";
+import emailjs from "@emailjs/browser";
 import { generateEmail, type GenerateEmailResult } from "@/lib/email.functions";
+
+const EMAILJS_SERVICE_ID = "service_zznirzy";
+const EMAILJS_TEMPLATE_ID = "template_9hiuxks";
+const EMAILJS_PUBLIC_KEY = "aJkp6MGihHvf3cq6I";
+
 
 export const Route = createFileRoute("/generate")({
   head: () => ({
