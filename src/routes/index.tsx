@@ -50,7 +50,7 @@ function Home() {
                 to="/examples"
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-6 py-3.5 font-semibold text-foreground transition-colors hover:bg-surface-elevated"
               >
-                See examples
+                View templates
               </Link>
             </div>
           </div>
