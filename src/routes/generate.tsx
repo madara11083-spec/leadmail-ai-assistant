@@ -224,6 +224,16 @@ function GeneratePage() {
             </div>
           </div>
 
+          <Field label="Send to (optional)">
+            <input
+              type="email"
+              className={inputCls}
+              placeholder="client@business.com"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+            />
+          </Field>
+
           <button
             type="submit"
             disabled={!canSubmit}
@@ -232,6 +242,7 @@ function GeneratePage() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {loading ? "Generating…" : "Generate Email"}
           </button>
+
         </form>
 
         {/* Output */}
