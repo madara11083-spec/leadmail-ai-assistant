@@ -313,6 +313,18 @@ function GeneratePage() {
                   <CrmDropdown />
                 </div>
               </div>
+
+              {recipientEmail.trim() && (
+                <button
+                  onClick={handleSend}
+                  disabled={sending}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-semibold text-primary-foreground transition-all hover:opacity-90 hover:glow-red disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {sending ? "Sending..." : "📤 Send via Gmail"}
+                </button>
+              )}
+
             </div>
           )}
 
