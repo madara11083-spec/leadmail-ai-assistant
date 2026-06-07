@@ -57,6 +57,9 @@ function GeneratePage() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [history, setHistory] = useState<Saved[]>([]);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sending, setSending] = useState(false);
+
 
   useEffect(() => {
     try {
