@@ -2,8 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Download, Loader2, Sparkles, Trash2, Mail, Database } from "lucide-react";
+import { Copy, Download, Loader2, Sparkles, Trash2, Mail, Database, Send } from "lucide-react";
+import emailjs from "@emailjs/browser";
 import { generateEmail, type GenerateEmailResult } from "@/lib/email.functions";
+
+const EMAILJS_SERVICE_ID = "service_zznirzy";
+const EMAILJS_TEMPLATE_ID = "template_9hiuxks";
+const EMAILJS_PUBLIC_KEY = "aJkp6MGihHvf3cq6I";
+
 
 export const Route = createFileRoute("/generate")({
   head: () => ({
@@ -51,6 +57,9 @@ function GeneratePage() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [history, setHistory] = useState<Saved[]>([]);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [sending, setSending] = useState(false);
+
 
   useEffect(() => {
     try {
@@ -138,6 +147,28 @@ function GeneratePage() {
     toast("History cleared");
   };
 
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          to_email: recipientEmail,
+          subject: subject,
+          body: body,
+        },
+        EMAILJS_PUBLIC_KEY,
+      );
+      toast.success("✅ Email sent to " + recipientEmail + "!");
+    } catch (error) {
+      toast.error("⚠️ Failed to send. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
       <header className="mb-10 max-w-2xl">
@@ -193,6 +224,16 @@ function GeneratePage() {
             </div>
           </div>
 
+          <Field label="Send to (optional)">
+            <input
+              type="email"
+              className={inputCls}
+              placeholder="client@business.com"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+            />
+          </Field>
+
           <button
             type="submit"
             disabled={!canSubmit}
@@ -201,6 +242,7 @@ function GeneratePage() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {loading ? "Generating…" : "Generate Email"}
           </button>
+
         </form>
 
         {/* Output */}
@@ -271,6 +313,18 @@ function GeneratePage() {
                   <CrmDropdown />
                 </div>
               </div>
+
+              {recipientEmail.trim() && (
+                <button
+                  onClick={handleSend}
+                  disabled={sending}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-semibold text-primary-foreground transition-all hover:opacity-90 hover:glow-red disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {sending ? "Sending..." : "📤 Send via Gmail"}
+                </button>
+              )}
+
             </div>
           )}
 
