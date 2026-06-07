@@ -47,7 +47,7 @@ function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/examples"
+                to="/templates"
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-6 py-3.5 font-semibold text-foreground transition-colors hover:bg-surface-elevated"
               >
                 View templates
