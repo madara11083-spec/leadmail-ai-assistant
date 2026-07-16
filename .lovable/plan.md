@@ -1,62 +1,96 @@
+# Bulk Campaign Feature Plan
 
-## LeadMail AI — Build Plan
+## 1. Authentication (prerequisite)
+- Add Supabase email/password + Google sign-in via Lovable Cloud managed auth.
+- Add `/auth` route (sign-in/sign-up) and integration-managed `_authenticated` gate.
+- Wrap Navbar with a session-aware account menu (Sign in / Sign out).
+- The existing single-lead generator stays public. Bulk Campaign will live under `/_authenticated/bulk`.
 
-A sleek, dark-themed marketing/utility app for web agencies to generate cold outreach emails to local businesses, with real AI generation, editable preview, and downloads.
+## 2. Google App User Connectors
+Two connectors, per-user OAuth (each user connects their own account):
+- `google_mail` — scopes: `gmail.send`, `userinfo.email`, `userinfo.profile`.
+- `google_sheets` — scopes: `spreadsheets`, `userinfo.email`, `userinfo.profile`.
 
-### Defaults I'm choosing
-- **AI**: Lovable Cloud + Lovable AI Gateway (`google/gemini-3-flash-preview`) — high quality, no API key setup.
-- **Auth**: Skipped. Generated emails persist to `localStorage` (history list on the Generate page).
-- **Bonus**: Tone slider + light/dark toggle + CRM placeholder buttons. No login.
+Wire the standard flow from the knowledge card:
+- `src/integrations/lovable/appUserConnector.ts` (server) + `appUserConnectorClient.ts` (browser popup).
+- Encrypted per-user key storage: `app_user_connections` table + AES-GCM helper reading `APP_USER_CONNECTION_KEY_SECRET`.
+- Server fns: `startConnect`, `saveAppUserConnection`, `disconnectConnection`, `getConnectionStatus`.
 
-### Design system
-- Background `#0D0D0D`, surfaces slightly lighter, red accent (`oklch` red ~ `#E11D2E`), white text, muted grey secondary.
-- Font: Inter (display + body) loaded via `<link>` in `__root.tsx`.
-- Rounded-xl corners, soft shadows with red glow on primary CTAs, subtle Framer Motion fade/slide on section mount and button hover.
-- Tokens defined in `src/styles.css` under `@theme` + `:root` / `.dark` (default `.dark` applied to `<html>`; toggle removes it for light mode).
-- Mobile-first responsive; sticky top nav with logo + links.
-
-### Routes (TanStack Start, file-based)
+## 3. Data model (Lovable Cloud migration)
 ```
-src/routes/
-  __root.tsx         shared nav + footer + theme provider + Inter <link>
-  index.tsx          / Home — hero, value props, CTA → /generate
-  generate.tsx       /generate — form + AI output + history
-  examples.tsx       /examples — 3 pre-made templates
-  about.tsx          /about — agency-facing pitch
-  contact.tsx        /contact — simple validated form (mailto submit)
+app_user_connections     — encrypted per-user connector keys (per knowledge card)
+bulk_campaigns           — id, user_id, sheet_id, sheet_tab, daily_limit,
+                           status (queued|running|paused|completed|failed),
+                           total_leads, sent_count, failed_count,
+                           next_send_at, last_error, agency_name, tone,
+                           business_type, service, created_at, updated_at
+campaign_leads           — id, campaign_id, user_id, row_index, name, business,
+                           email, niche, subject, body, status
+                           (pending|sent|failed|skipped), error, sent_at
 ```
-Each route gets unique `head()` meta (title, description, og:*).
+All tables: RLS `user_id = auth.uid()`; GRANT authenticated + service_role.
 
-### Components
-- `components/layout/Navbar.tsx`, `Footer.tsx`, `ThemeToggle.tsx`
-- `components/generate/LeadForm.tsx` — fields: business type (Select: Realtor, Doctor/Clinic, Restaurant, Retail, Law Firm, Other+freeform), business name, location, service to pitch (Select + custom), tone slider (1–5: Casual → Corporate).
-- `components/generate/EmailPreview.tsx` — editable subject + body textareas, Copy, Download .txt, Download .doc, "Send to CRM" placeholder dropdown (HubSpot/Salesforce/Pipedrive — toast "Coming soon").
-- `components/generate/HistoryList.tsx` — last 10 saved emails from localStorage.
-- `components/examples/ExampleCard.tsx` — pizza/Chicago, realtor/LA, dental/Austin.
+## 4. UI — `/_authenticated/bulk`
+- **Connections panel**: Gmail + Google Sheets connect buttons, status pills, disconnect.
+- **New campaign form**: paste Google Sheet URL/ID + tab name (default `Sheet1`), agency name, tone slider, business type & service (used by the same prompt as single-lead), daily send limit (default 40).
+- **"Load Leads"** button → server fn reads sheet via `google_sheets` connector, filters `Status = "New"`, returns rows.
+- **Preview table** with checkboxes (all selected by default), plus a "Generate previews" step showing subject+body for each selected lead (uses existing `generateEmail` logic, extended to accept `{name, business}`).
+- **Start Campaign** button → creates `bulk_campaigns` + `campaign_leads` rows, sets `status=running`, `next_send_at=now()`.
+- **Live progress dashboard** (polls every 5s via TanStack Query): Total | Sent | Failed | Remaining, current lead, ETA, pause/resume/stop.
 
-### Server function — AI email generation
-`src/lib/email.functions.ts`:
-- `generateEmail` (`createServerFn` POST) with Zod validation on `{ businessType, businessName, location, service, tone }`.
-- Calls `https://ai.gateway.lovable.dev/v1/chat/completions` with `google/gemini-3-flash-preview`, structured tool-calling to return `{ subjectLines: string[3], body: string }`.
-- Handles 429 (rate limit) and 402 (credits) with user-friendly toast errors.
+## 5. Background runner (server-driven)
+Cron endpoint: `POST /api/public/hooks/campaign-tick` (authenticated with anon apikey header).
+Scheduled every minute via pg_cron.
 
-### Generation prompt logic
-- System prompt enforces: friendly-professional tone scaled by slider, 3 short punchy subject lines, personalized opener referencing business type + location, clear value prop tied to chosen service, single CTA for free consultation/demo, signature placeholder `[Your Name] — [Your Agency]`.
+Per tick:
+1. Load all campaigns with `status='running'` AND `next_send_at <= now()`.
+2. For each, pick the next `pending` lead:
+   - Regenerate today's send count; if `>= daily_limit`, mark campaign `completed` (daily cap).
+   - Load user's encrypted Gmail key, decrypt, send via Gmail API `users/me/messages/send` (append unsubscribe line to body).
+   - On success: mark lead `sent`, `sent_count++`, update sheet row `Status=Sent, Email_Sent_Date=today` via Sheets API.
+   - On failure: mark lead `failed`, `failed_count++`, update sheet `Status=Failed`, continue.
+   - Set `next_send_at = now() + random(60..90) seconds`.
+3. If no `pending` leads remain → `status=completed`.
 
-### Examples page
-Three hardcoded sample emails rendered as cards with Copy button — pizza/Chicago, realtor/LA, dental/Austin.
+Because pg_cron only fires every 60s, the 60–90s randomized gap is naturally enforced by `next_send_at`. Each tick processes at most one send per campaign, so multiple campaigns interleave safely.
 
-### Technical details
-- Enable Lovable Cloud (required for AI Gateway + `LOVABLE_API_KEY`).
-- `framer-motion` for transitions (already common; install if missing).
-- Theme toggle: small hook persisting to `localStorage`, toggles `.dark` on `<html>`. Default dark.
-- Validation: Zod on client (react-hook-form) and server.
-- SEO: per-route `head()`, single H1 per page, semantic HTML, alt text.
+## 6. Email generation reuse
+- Extract prompt builder from `src/lib/email.functions.ts` into `src/lib/email-prompt.ts` (pure).
+- New `generateEmailForLead` server fn takes `{name, business, businessType, service, tone, agencyName, niche}` and returns `{subject, body}`. Body auto-appends: `\n\nTo unsubscribe, reply "unsubscribe".`
+- The single-lead page keeps working unchanged.
 
-### Out of scope (v1)
-User accounts, real CRM integration, actual email sending, payment.
+## 7. Files to add/change
+```
+src/routes/auth.tsx                              (sign-in/up)
+src/routes/_authenticated/route.tsx              (managed gate — integration owns)
+src/routes/_authenticated/bulk.tsx               (Bulk Campaign UI)
+src/routes/api/public/hooks/campaign-tick.ts     (cron worker)
+src/components/layout/Navbar.tsx                 (session-aware)
+src/integrations/lovable/appUserConnector.ts
+src/integrations/lovable/appUserConnectorClient.ts
+src/server/connectionKeyCrypto.server.ts
+src/server/appUserConnections.server.ts
+src/lib/connectors.functions.ts                  (start/save/disconnect/status)
+src/lib/sheets.functions.ts                      (loadLeads, updateLeadStatus)
+src/lib/campaigns.functions.ts                   (create/list/get/pause/resume/cancel)
+src/lib/email-prompt.ts                          (shared prompt builder)
+src/lib/email.functions.ts                       (extend — add generateEmailForLead)
+supabase migrations                              (tables + RLS + GRANTs)
+```
 
-### Acceptance
-- All 5 routes render with unique meta and consistent dark UI.
-- Form generates a real AI email; subject + body editable; Copy / .txt / .doc work.
-- Examples page shows 3 templates. About + Contact present. Mobile-responsive. Light/dark toggle works.
+## 8. Secrets & connectors
+- Call `ai_gateway--create` (LOVABLE_API_KEY already present, per env).
+- Call `connector_app_user--connect_client` for `google_mail` and `google_sheets`.
+- Generate `APP_USER_CONNECTION_KEY_SECRET` via `secrets--generate_secret`.
+- Register pg_cron job pointing at `/api/public/hooks/campaign-tick`.
+
+## Technical notes
+- Sheet ID parser accepts both raw ID and full `docs.google.com/spreadsheets/d/{id}/...` URLs.
+- Gmail send builds RFC 2822 MIME manually, base64url-encoded, POST to `users/me/messages/send`.
+- Sheet updates use `values/{tab}!F{rowIndex}:F` PUT with `valueInputOption=USER_ENTERED` (and similar for Status column). The row index is stored on `campaign_leads` at load time.
+- All Google API calls go through `callAsAppUser` server-side; no browser calls.
+- The cron worker is idempotent per lead (skips leads whose row was already `sent`/`failed`).
+- Single-lead generator on `/generate` is left untouched.
+
+## Out of scope
+- Reply/bounce tracking, warm-up throttling, template library, drip sequences, opens tracking, attachments.
