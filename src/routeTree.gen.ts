@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as GenerateRouteImport } from './routes/generate'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as BulkRouteImport } from './routes/bulk'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicHooksCampaignTickRouteImport } from './routes/api/public/hooks/campaign-tick'
 
 const TemplatesRoute = TemplatesRouteImport.update({
   id: '/templates',
@@ -30,6 +32,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BulkRoute = BulkRouteImport.update({
+  id: '/bulk',
+  path: '/bulk',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -40,43 +47,79 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksCampaignTickRoute =
+  ApiPublicHooksCampaignTickRouteImport.update({
+    id: '/api/public/hooks/campaign-tick',
+    path: '/api/public/hooks/campaign-tick',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/bulk': typeof BulkRoute
   '/contact': typeof ContactRoute
   '/generate': typeof GenerateRoute
   '/templates': typeof TemplatesRoute
+  '/api/public/hooks/campaign-tick': typeof ApiPublicHooksCampaignTickRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/bulk': typeof BulkRoute
   '/contact': typeof ContactRoute
   '/generate': typeof GenerateRoute
   '/templates': typeof TemplatesRoute
+  '/api/public/hooks/campaign-tick': typeof ApiPublicHooksCampaignTickRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/bulk': typeof BulkRoute
   '/contact': typeof ContactRoute
   '/generate': typeof GenerateRoute
   '/templates': typeof TemplatesRoute
+  '/api/public/hooks/campaign-tick': typeof ApiPublicHooksCampaignTickRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/contact' | '/generate' | '/templates'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/bulk'
+    | '/contact'
+    | '/generate'
+    | '/templates'
+    | '/api/public/hooks/campaign-tick'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/contact' | '/generate' | '/templates'
-  id: '__root__' | '/' | '/about' | '/contact' | '/generate' | '/templates'
+  to:
+    | '/'
+    | '/about'
+    | '/bulk'
+    | '/contact'
+    | '/generate'
+    | '/templates'
+    | '/api/public/hooks/campaign-tick'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/bulk'
+    | '/contact'
+    | '/generate'
+    | '/templates'
+    | '/api/public/hooks/campaign-tick'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  BulkRoute: typeof BulkRoute
   ContactRoute: typeof ContactRoute
   GenerateRoute: typeof GenerateRoute
   TemplatesRoute: typeof TemplatesRoute
+  ApiPublicHooksCampaignTickRoute: typeof ApiPublicHooksCampaignTickRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -102,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bulk': {
+      id: '/bulk'
+      path: '/bulk'
+      fullPath: '/bulk'
+      preLoaderRoute: typeof BulkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -116,26 +166,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/campaign-tick': {
+      id: '/api/public/hooks/campaign-tick'
+      path: '/api/public/hooks/campaign-tick'
+      fullPath: '/api/public/hooks/campaign-tick'
+      preLoaderRoute: typeof ApiPublicHooksCampaignTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  BulkRoute: BulkRoute,
   ContactRoute: ContactRoute,
   GenerateRoute: GenerateRoute,
   TemplatesRoute: TemplatesRoute,
+  ApiPublicHooksCampaignTickRoute: ApiPublicHooksCampaignTickRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
