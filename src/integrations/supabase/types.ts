@@ -14,7 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bulk_campaigns: {
+        Row: {
+          agency_name: string
+          business_type: string
+          created_at: string
+          daily_limit: number
+          from_name: string
+          id: string
+          last_error: string | null
+          last_run_date: string | null
+          name: string
+          sent_today: number
+          service: string
+          sheet_id: string
+          sheet_tab: string
+          status: string
+          tone: number
+          unsubscribe_text: string
+          updated_at: string
+        }
+        Insert: {
+          agency_name?: string
+          business_type: string
+          created_at?: string
+          daily_limit?: number
+          from_name?: string
+          id?: string
+          last_error?: string | null
+          last_run_date?: string | null
+          name?: string
+          sent_today?: number
+          service: string
+          sheet_id: string
+          sheet_tab?: string
+          status?: string
+          tone?: number
+          unsubscribe_text?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_name?: string
+          business_type?: string
+          created_at?: string
+          daily_limit?: number
+          from_name?: string
+          id?: string
+          last_error?: string | null
+          last_run_date?: string | null
+          name?: string
+          sent_today?: number
+          service?: string
+          sheet_id?: string
+          sheet_tab?: string
+          status?: string
+          tone?: number
+          unsubscribe_text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      campaign_leads: {
+        Row: {
+          body: string | null
+          business: string
+          campaign_id: string
+          created_at: string
+          email: string
+          error: string | null
+          id: string
+          name: string
+          niche: string
+          row_index: number
+          sent_at: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          body?: string | null
+          business?: string
+          campaign_id: string
+          created_at?: string
+          email: string
+          error?: string | null
+          id?: string
+          name?: string
+          niche?: string
+          row_index: number
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          body?: string | null
+          business?: string
+          campaign_id?: string
+          created_at?: string
+          email?: string
+          error?: string | null
+          id?: string
+          name?: string
+          niche?: string
+          row_index?: number
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_leads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
