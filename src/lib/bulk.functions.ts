@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // ---------- Sheet helpers ----------
 
@@ -103,11 +103,13 @@ const CreateCampaignInput = z.object({
 });
 
 export const createBulkCampaign = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => CreateCampaignInput.parse(data))
-  .handler(async ({ data }) => {
-    const { data: campaign, error } = await supabase
+  .handler(async ({ data, context }) => {
+    const { data: campaign, error } = await context.supabase
       .from("bulk_campaigns")
       .insert({
+        user_id: context.userId,
         name: data.name,
         sheet_id: data.sheetId,
         sheet_tab: data.sheetTab,
@@ -126,6 +128,7 @@ export const createBulkCampaign = createServerFn({ method: "POST" })
 
     const rows = data.leads.map((l) => ({
       campaign_id: campaign.id,
+      user_id: context.userId,
       row_index: l.rowIndex,
       name: l.name,
       business: l.business,
@@ -133,7 +136,7 @@ export const createBulkCampaign = createServerFn({ method: "POST" })
       niche: l.niche,
       status: "pending",
     }));
-    const { error: lerr } = await supabase.from("campaign_leads").insert(rows);
+    const { error: lerr } = await context.supabase.from("campaign_leads").insert(rows);
     if (lerr) throw new Error(lerr.message);
 
     return { campaignId: campaign.id };
@@ -141,30 +144,36 @@ export const createBulkCampaign = createServerFn({ method: "POST" })
 
 // ---------- Campaign status / listing ----------
 
-export const listBulkCampaigns = createServerFn({ method: "GET" }).handler(async () => {
-  const { data, error } = await supabase
-    .from("bulk_campaigns")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (error) throw new Error(error.message);
-  return data ?? [];
-});
+export const listBulkCampaigns = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("bulk_campaigns")
+      .select("*")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
 
 const CampaignIdInput = z.object({ campaignId: z.string().uuid() });
 
 export const getCampaignStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => CampaignIdInput.parse(data))
-  .handler(async ({ data }) => {
-    const { data: c } = await supabase
+  .handler(async ({ data, context }) => {
+    const { data: c } = await context.supabase
       .from("bulk_campaigns")
       .select("*")
       .eq("id", data.campaignId)
+      .eq("user_id", context.userId)
       .single();
-    const { data: leads } = await supabase
+    const { data: leads } = await context.supabase
       .from("campaign_leads")
       .select("id,email,name,business,status,error,sent_at,subject")
       .eq("campaign_id", data.campaignId)
+      .eq("user_id", context.userId)
       .order("created_at", { ascending: true });
     const counts = { total: 0, sent: 0, failed: 0, pending: 0, skipped: 0 };
     for (const l of leads ?? []) {
@@ -180,12 +189,15 @@ const StatusChangeInput = z.object({
 });
 
 export const setCampaignStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => StatusChangeInput.parse(data))
-  .handler(async ({ data }) => {
-    const { error } = await supabase
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
       .from("bulk_campaigns")
       .update({ status: data.status })
-      .eq("id", data.campaignId);
+      .eq("id", data.campaignId)
+      .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+

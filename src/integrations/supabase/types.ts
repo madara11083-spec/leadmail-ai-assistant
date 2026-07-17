@@ -33,6 +33,7 @@ export type Database = {
           tone: number
           unsubscribe_text: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           agency_name?: string
@@ -52,6 +53,7 @@ export type Database = {
           tone?: number
           unsubscribe_text?: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           agency_name?: string
@@ -71,6 +73,7 @@ export type Database = {
           tone?: number
           unsubscribe_text?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -89,6 +92,7 @@ export type Database = {
           sent_at: string | null
           status: string
           subject: string | null
+          user_id: string
         }
         Insert: {
           body?: string | null
@@ -104,6 +108,7 @@ export type Database = {
           sent_at?: string | null
           status?: string
           subject?: string | null
+          user_id?: string
         }
         Update: {
           body?: string | null
@@ -119,6 +124,7 @@ export type Database = {
           sent_at?: string | null
           status?: string
           subject?: string | null
+          user_id?: string
         }
         Relationships: [
           {
